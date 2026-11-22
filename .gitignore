@@ -1,0 +1,13 @@
+.env
+venv/
+__pycache__/
+*.pyc
+app.db
+outputs/
+checkpoints.db
+checkpoints.db-shm
+checkpoints.db-wal
+ARCHITECTURE.md
+PROGRESS.md
+CLAUDE.md
+
