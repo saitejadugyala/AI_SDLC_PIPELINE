@@ -1420,6 +1420,7 @@ async function loadDeployRepoPicker() {
   if (!select) return;
   try {
     const res = await fetch('/repos');
+    if (await handleGithubAuthExpired(res)) { select.innerHTML = '<option value="">GitHub login expired — log in again</option>'; return; }
     if (!res.ok) throw new Error(await errorDetail(res));
     const data = await res.json();
     select.innerHTML = data.repos.length
@@ -1621,16 +1622,31 @@ function resetRepoPicker() {
   selectedRepo = null;
 }
 
+// GitHub rejected the stored token (revoked/expired). The server already ended
+// the session; switch the UI to logged-out and say what to do.
+let githubExpiredShown = false;
+async function handleGithubAuthExpired(res) {
+  if (res.status !== 401) return false;
+  if (!githubExpiredShown) {
+    githubExpiredShown = true;
+    toast(await errorDetail(res), 'err');
+    setTimeout(() => { githubExpiredShown = false; }, 5000);
+    loadAuthState();
+  }
+  return true;
+}
+
 async function loadRepoPicker() {
   const select = document.getElementById('repoSelect');
   select.innerHTML = '<option value="">Loading your repos…</option>';
   select.disabled = true;
   try {
     const res = await fetch('/repos');
-    if (!res.ok) throw new Error(await res.text());
+    if (await handleGithubAuthExpired(res)) { select.innerHTML = '<option value="">GitHub login expired — log in again</option>'; return; }
+    if (!res.ok) throw new Error(await errorDetail(res));
     const data = await res.json();
     if (!data.repos.length) {
-      select.innerHTML = '<option value="">No repos found on your GitHub account</option>';
+      select.innerHTML = '<option value="">No public repos found on your GitHub account</option>';
       return;
     }
     select.innerHTML = '<option value="">Select a repo…</option>' +
@@ -1638,7 +1654,7 @@ async function loadRepoPicker() {
     select.disabled = false;
   } catch (err) {
     select.innerHTML = '<option value="">Could not load repos</option>';
-    toast('Could not load your repos from GitHub', 'err');
+    toast(`Could not load your repos from GitHub: ${err.message}`, 'err');
   }
 }
 
@@ -1675,10 +1691,11 @@ async function loadRagRepoPicker() {
   select.innerHTML = '<option value="">Loading your repos…</option>';
   try {
     const res = await fetch('/repos');
-    if (!res.ok) throw new Error(await res.text());
+    if (await handleGithubAuthExpired(res)) { select.innerHTML = '<option value="">GitHub login expired — log in again</option>'; syncFloatRagPicker(); return; }
+    if (!res.ok) throw new Error(await errorDetail(res));
     const data = await res.json();
     if (!data.repos.length) {
-      select.innerHTML = '<option value="">No repos found on your GitHub account</option>';
+      select.innerHTML = '<option value="">No public repos found on your GitHub account</option>';
       return;
     }
     select.innerHTML = '<option value="">Select a repo…</option>' +

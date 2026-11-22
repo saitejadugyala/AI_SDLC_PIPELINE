@@ -343,3 +343,34 @@ def test_start_rejects_repo_without_push_access(fake, alice):
     r = alice.post("/pipeline/start", json={"request_text": "x", "github_repo": "someone/readonly"})
     assert r.status_code == 403
     assert len(alice.get("/pipeline").json()["workflows"]) == before
+
+
+# ---------------------------------------------------------------- revoked GitHub token
+
+def test_revoked_github_token_logs_user_out_with_clear_message(monkeypatch):
+    """GitHub answers 401 for a revoked token (MOCKED). The app session must end
+    so the UI sends the user to log in again, instead of 'Could not load repos'."""
+    class Resp:
+        status_code = 401
+        def json(self):
+            return {"message": "Bad credentials"}
+    monkeypatch.setattr(api.requests, "get", lambda *a, **k: Resp())
+    c = client_for(create_user(2050, "revoked-user"))
+    assert c.get("/auth/me").json()["logged_in"] is True
+    r = c.get("/repos")
+    assert r.status_code == 401 and "log in with GitHub again" in r.json()["detail"]
+    # The server tells the browser to drop the session cookie (expired, empty value).
+    cookie = r.headers["set-cookie"].lower()
+    assert cookie.startswith("session=null") and "expires=thu, 01 jan 1970" in cookie
+
+
+def test_repos_lists_public_only(monkeypatch):
+    class Resp:
+        status_code = 200
+        def json(self):
+            return [{"full_name": "u/pub", "private": False}, {"full_name": "u/priv", "private": True}]
+    captured = {}
+    monkeypatch.setattr(api.requests, "get", lambda url, **k: captured.update(url=url, params=k["params"]) or Resp())
+    r = client_for(create_user(2051, "lister")).get("/repos")
+    assert r.json() == {"repos": [{"full_name": "u/pub", "private": False}]}
+    assert captured["params"]["visibility"] == "public"

@@ -301,15 +301,23 @@ def download_design(doc_id: str, request: Request):
 def list_repos(request: Request):
     user = require_user(request)
     resp = requests.get(
-        "https://api.github.com/user/repos",
+        f"{config.GITHUB_API_URL}/user/repos",
         headers={"Authorization": f"Bearer {user['access_token']}"},
         # Public repos only (decision 7) — the OAuth scope is public_repo, so a
         # private repo could be selected here but never deployed to.
         params={"per_page": 100, "sort": "updated", "affiliation": "owner", "visibility": "public"},
         timeout=10,
     )
+    if resp.status_code == 401:
+        # The stored GitHub token was revoked/expired (e.g. OAuth app secret
+        # regenerated or access revoked). Our session is still valid, so the UI
+        # looked logged in while every GitHub call failed — end the session so
+        # the user is sent to log in again and a fresh token is stored.
+        logger.warning(f"GitHub token rejected (401) | user_id={user['id']} — clearing session")
+        request.session.clear()
+        raise HTTPException(status_code=401, detail="Your GitHub login has expired or was revoked — please log in with GitHub again.")
     if resp.status_code != 200:
-        raise HTTPException(status_code=502, detail="Could not fetch repos from GitHub — try logging in again")
+        raise HTTPException(status_code=502, detail=f"GitHub returned {resp.status_code} while listing your repos — try again shortly.")
 
     repos = [{"full_name": r["full_name"], "private": r["private"]} for r in resp.json() if not r.get("private")]
     return {"repos": repos}
