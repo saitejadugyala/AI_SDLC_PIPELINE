@@ -7,8 +7,6 @@ outputs/
 checkpoints.db
 checkpoints.db-shm
 checkpoints.db-wal
-ARCHITECTURE.md
-PROGRESS.md
-CLAUDE.md
+
 
 .DS_Store
