@@ -9,11 +9,6 @@ Built with **Python, FastAPI, LangGraph, SQLite, and LLM APIs**, the platform or
 
 The system supports Gemini as its primary LLM provider, with OpenAI and OpenRouter as configurable fallback providers. GitHub integration is implemented through the Model Context Protocol (MCP).
 
-**Documentation**
-- [Codebase Audit](docs/CODEBASE_AUDIT.md)
-- [Architecture & Refactoring Plan](docs/ARCHITECTURE.md)
-- [Progress Log & Test Results](docs/PROGRESS.md)
-- [Next Steps Roadmap](docs/NEXT_STEPS.md)
 
 ---
 
