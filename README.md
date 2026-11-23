@@ -384,7 +384,8 @@ SDLC_PIPELINE_AGENT/
 ├── docs/
 │   ├── pipeline.svg
 │   ├── internal-flow.svg
-│ 
+│   
+│   
 │
 ├── tests/
 │   └── Automated test suite
@@ -442,7 +443,7 @@ Update `.env` with the required credentials.
 
 Navigate to:
 
-`http://localhost:8000`
+`http://localhost:8001`
 
 The frontend is served by FastAPI. Opening `static/index.html` directly in a browser is not supported.
 
@@ -544,6 +545,8 @@ The project distinguishes between implemented functionality, verified behaviour,
 | Sandboxed generated-code execution | Planned |
 | Automated runtime and integration testing | Planned |
 
+For verification details, test outcomes, known limitations, and the latest 
+
 ---
 
 ## 13. Roadmap
@@ -559,6 +562,7 @@ Planned areas include:
 - Improved static analysis and security checks.
 - More advanced codebase retrieval and contextual reasoning.
 - Improved observability and agent execution tracing.
+
 
 
 ---
