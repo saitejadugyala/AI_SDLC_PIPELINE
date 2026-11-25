@@ -1,14 +1,12 @@
-
-# SDLC Pipeline Agent
+# AISDLC Pipeline Agent
 
 **An AI-powered, human-in-the-loop Software Development Lifecycle (SDLC) automation platform.**
 
 SDLC Pipeline Agent is a multi-agent system that transforms plain-English feature requests into structured requirements, technical designs, implementation plans, generated code, QA reviews, and GitHub pull requests.
 
-Built with **Python, FastAPI, LangGraph, SQLite, and LLM APIs**, the platform orchestrates specialized agents through a controlled workflow, with explicit human approval gates at every major stage.
+Built with **Python, FastAPI, LangGraph, SQLite, LiteLLM, and multiple LLM providers**, the platform orchestrates specialized agents through a controlled workflow, with explicit human approval gates at every major stage.
 
-The system supports Gemini as its primary LLM provider, with OpenAI and OpenRouter as configurable fallback providers. GitHub integration is implemented through the Model Context Protocol (MCP).
-
+The platform includes a centralized **LiteLLM-based LLM gateway** and supports **Google Gemini, Groq, OpenAI, and OpenRouter** for model integration and fallback routing. GitHub integration includes GitHub OAuth authentication, repository access, and MCP-based deployment through pull requests.
 
 ---
 
@@ -64,7 +62,7 @@ Code generation is grounded in:
 - Approved technical design
 - Approved implementation plan
 - Existing source files, where available
-- Relevant codebase context
+- Relevant codebase context retrieved through RAG
 
 When modifying an existing project, the agent receives the current contents of relevant files to reduce inconsistencies and preserve existing implementation context.
 
@@ -140,50 +138,50 @@ This creates a controlled development process in which agents can perform implem
        Feature Request
               |
               v
-     Requirements Agent
+      Requirements Agent
+              |
+         Human Approval
+              |
+              v
+         Design Agent
+              |
+         Human Approval
+              |
+              v
+       Development Plan
+              |
+         Human Approval
+              |
+              v
+        Code Generation
+              |
+              v
+          QA Pipeline
+              |
+         +-----+-----+
+         |           |
+       PASS         FAIL
+         |           |
+         |      Retry Codegen
+         |      (Max 3 attempts)
+         |           |
+         |       Run QA Again
+         |           |
+         +-----+-----+
               |
         Human Approval
               |
               v
-        Design Agent
+        GitHub Deployment
               |
-        Human Approval
+        Create New Branch
               |
-              v
-      Development Plan
+          Write Files
               |
-        Human Approval
-              |
-              v
-       Code Generation
+        Open Pull Request
               |
               v
-         QA Pipeline
-              |
-        +-----+-----+
-        |           |
-      PASS         FAIL
-        |           |
-        |      Retry Codegen
-        |      (Max 3 attempts)
-        |           |
-        |       Run QA Again
-        |           |
-        +-----+-----+
-              |
-       Human Approval
-              |
-              v
-       GitHub Deployment
-              |
-       Create New Branch
-              |
-         Write Files
-              |
-       Open Pull Request
-              |
-              v
-        Human Merge
+         Human Merge
 ```
 
 A failed QA result cannot be approved for deployment. This is enforced at the application and workflow levels, not merely through frontend controls.
@@ -208,9 +206,11 @@ The application retrieves the repository's current files using the authenticated
 
 The selected repository can subsequently be used for deployment.
 
-### Repository RAG Ingestion
+### Repository RAG Ingestion and Retrieval
 
-For deeper codebase exploration and contextual question answering, repositories can also be ingested into the RAG subsystem.
+The platform includes an implemented **Retrieval-Augmented Generation (RAG)** subsystem for grounding agents in an existing repository.
+
+Repository source files are ingested, divided into meaningful chunks, embedded, and made available for retrieval so that downstream stages can use relevant codebase context instead of relying only on the feature request.
 
 The ingestion pipeline uses a Tree-sitter-based AST-aware chunker implemented in:
 
@@ -239,6 +239,8 @@ The chunking strategy:
 5. Falls back to character-window chunking when a language is unsupported or parsing fails.
 
 This approach preserves meaningful source-code context and avoids silently dropping files that cannot be parsed.
+
+Retrieved repository context supports codebase analysis, technical design, and code generation.
 
 ---
 
@@ -322,9 +324,12 @@ This is a capability-level restriction rather than a configurable deployment set
 | FastAPI | Backend API and application server |
 | LangGraph | Multi-agent workflow orchestration |
 | SQLite | Persistent application data |
-| Gemini API | Primary LLM provider |
-| OpenAI API | Alternative/fallback LLM provider |
-| OpenRouter | Alternative/fallback LLM provider |
+| LiteLLM | Centralized LLM gateway and provider integration |
+| Google Gemini | Supported LLM provider |
+| Groq | Supported LLM provider |
+| OpenAI | Supported LLM provider |
+| OpenRouter | Supported LLM provider and fallback option |
+| RAG | Repository context retrieval and grounding |
 | Tree-sitter | AST-aware source-code parsing |
 | FastMCP | MCP server implementation |
 | GitHub OAuth | User authentication |
@@ -334,21 +339,32 @@ This is a capability-level restriction rather than a configurable deployment set
 
 ---
 
-## 7. LLM Provider Configuration
+## 7. LLM Gateway and Provider Configuration
 
-The application supports multiple LLM providers.
+The application uses **LiteLLM as a centralized LLM gateway**.
 
-The default provider priority is:
+This provides a consistent interface for communicating with multiple LLM providers and centralizes provider configuration and fallback behaviour.
 
-```text
-Gemini → OpenAI → OpenRouter
-```
+### Supported LLM providers
 
-Provider selection is controlled through `LLM_PROVIDER_ORDER`.
+- Google Gemini
+- Groq
+- OpenAI
+- OpenRouter
 
-At least one valid provider API key must be configured.
+### Gateway responsibilities
 
-The RAG embedding subsystem supports Gemini or OpenAI embeddings.
+- Centralized model communication.
+- Multiple LLM provider integrations.
+- Configurable provider routing.
+- Fallback handling when a configured provider is unavailable or fails.
+- Consistent LLM interaction across pipeline agents.
+
+Provider order and fallback behaviour are controlled by the application's LLM configuration.
+
+At least one valid provider API key must be configured for agent execution.
+
+The RAG embedding subsystem supports Gemini or OpenAI embeddings, as configured by the application.
 
 ---
 
@@ -383,9 +399,7 @@ SDLC_PIPELINE_AGENT/
 │
 ├── docs/
 │   ├── pipeline.svg
-│   ├── internal-flow.svg
-│   
-│   
+│   └── internal-flow.svg
 │
 ├── tests/
 │   └── Automated test suite
@@ -478,9 +492,10 @@ Configure the following values in `.env`.
 | `GITHUB_OAUTH_CLIENT_ID` | GitHub OAuth application client ID. |
 | `GITHUB_OAUTH_CLIENT_SECRET` | GitHub OAuth application client secret. |
 | `GEMINI_API_KEY` | Gemini API authentication. |
+| `GROQ_API_KEY` | Groq API authentication. |
 | `OPENAI_API_KEY` | OpenAI API authentication. |
 | `OPENROUTER_API_KEY` | OpenRouter API authentication. |
-| `LLM_PROVIDER_ORDER` | Configures provider priority. Defaults to Gemini, OpenAI, then OpenRouter. |
+| `LLM_PROVIDER_ORDER` | Configures the provider routing and fallback order used by the LiteLLM gateway. |
 
 GitHub OAuth credentials are required for authentication and GitHub operations. Without them, the application can start, but login returns HTTP 503.
 
@@ -516,7 +531,7 @@ This allows the core workflow and deployment behaviour to be tested without exte
 
 The `test_*.py` scripts located in the repository root are manual integration scripts.
 
-Unlike the automated test suite, these scripts can make real API calls to Gemini and GitHub and may require valid credentials and network access.
+Unlike the automated test suite, these scripts can make real API calls to LLM providers and GitHub and may require valid credentials and network access.
 
 ---
 
@@ -537,7 +552,13 @@ The project distinguishes between implemented functionality, verified behaviour,
 | QA deployment blocking | Implemented |
 | ZIP-based codebase grounding | Implemented |
 | GitHub repository integration | Implemented |
+| Repository RAG ingestion and retrieval | Implemented |
 | AST-aware RAG chunking | Implemented |
+| LiteLLM-based centralized LLM gateway | Implemented |
+| Gemini integration | Implemented |
+| Groq integration | Implemented |
+| OpenAI integration | Implemented |
+| OpenRouter integration and fallback | Implemented |
 | GitHub OAuth authentication | Implemented |
 | MCP-based GitHub deployment | Implemented |
 | Automated pull-request creation | Implemented |
@@ -545,7 +566,9 @@ The project distinguishes between implemented functionality, verified behaviour,
 | Sandboxed generated-code execution | Planned |
 | Automated runtime and integration testing | Planned |
 
-For verification details, test outcomes, known limitations, and the latest 
+**Implementation status does not automatically mean that every behaviour has been independently verified.**
+
+For verification details, test outcomes, and known limitations, refer to the automated test suite and relevant implementation documentation.
 
 ---
 
@@ -562,8 +585,6 @@ Planned areas include:
 - Improved static analysis and security checks.
 - More advanced codebase retrieval and contextual reasoning.
 - Improved observability and agent execution tracing.
-
-
 
 ---
 
