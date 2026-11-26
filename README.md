@@ -480,6 +480,16 @@ Each review stage provides a DOCX download for its corresponding artifact:
 
 The generated documents are also listed when the pipeline run completes.
 
+### Deploying to Render
+
+`render.yaml` defines a free Render web service that deploys from `main` once the GitHub `tests` workflow passes.
+
+1. Render dashboard → **New → Blueprint** → select this repository.
+2. Fill in the prompted values: `APP_BASE_URL` (your exact `https://<service>.onrender.com` URL), the GitHub OAuth client ID and secret, and at least one LLM key. `SESSION_SECRET_KEY` is generated automatically.
+3. In the GitHub OAuth app, set the Homepage URL to `APP_BASE_URL` and the callback URL to `APP_BASE_URL/auth/github/callback`.
+
+The free plan has no persistent disk: the SQLite databases and `outputs/` are wiped on every restart, redeploy and idle spin-down, so users must log in again and unfinished runs are lost.
+
 ---
 
 ## 10. Environment Variables

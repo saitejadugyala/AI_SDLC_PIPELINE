@@ -1,0 +1,41 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+# Render dashboard -> New -> Blueprint -> pick this repo.
+#
+# Free plan caveat: the disk is NOT persistent. app.db, checkpoints.db and
+# outputs/ are wiped on every restart, redeploy and idle spin-down (~15 min),
+# so users log in again and unfinished runs are lost. Fine for demos.
+services:
+  - type: web
+    name: ai-sdlc-pipeline
+    runtime: python
+    plan: free
+    branch: main
+    # Deploy a push to main only after its GitHub checks (the test workflow) pass.
+    autoDeployTrigger: checksPass
+    buildCommand: pip install -r requirements.txt
+    # --proxy-headers: Render terminates TLS and forwards plain HTTP.
+    startCommand: uvicorn api:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips "*"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      # Render generates a random 256-bit value on first deploy.
+      - key: SESSION_SECRET_KEY
+        generateValue: true
+      # Set to your exact service URL, e.g. https://ai-sdlc-pipeline.onrender.com
+      # Every request to another host is redirected here, and GitHub OAuth
+      # returns to <APP_BASE_URL>/auth/github/callback.
+      - key: APP_BASE_URL
+        sync: false
+      - key: GITHUB_OAUTH_CLIENT_ID
+        sync: false
+      - key: GITHUB_OAUTH_CLIENT_SECRET
+        sync: false
+      # At least one LLM key is required; leave the others empty.
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: LLM_PROVIDER_ORDER
+        value: gemini,openai,openrouter
