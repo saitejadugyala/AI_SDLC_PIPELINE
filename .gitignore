@@ -11,7 +11,4 @@ checkpoints.db-wal
 
 .DS_Store
 
-# Claude Code local files
-.claude/
-CLAUDE.md
-CLAUDE.local.md
+
